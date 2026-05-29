@@ -278,3 +278,33 @@ fewer minutiae. A fuller, centred capture + baseline subtraction should raise co
 The real proof is M2: capture several prints of the same finger + impostors, run `bozorth3`,
 and check genuine-vs-impostor score separation (FAR/FRR). Until those separate cleanly,
 treat optimistic as provisional.
+
+---
+
+## 2026-05-29 (cont.) — M2 first pass: matching does NOT separate yet
+
+Captured 3 genuine (right index, `m2-genA-1..3`) + 2 impostor (right middle, `m2-impB-1..2`),
+ran `research/m2_eval.py` (raw → norm8+invert → pad320 → cwsq → `mindtct -m1` → `bozorth3`
+all pairs). Minutiae per print 12–24. Scores (higher=more similar):
+- genuine (same finger): 9, 5, 4, 0
+- impostor (diff finger): 15, 8, 6, 3, 0, 0  ← overlaps; impostor max (15) > genuine max (9)
+
+**VERDICT: OVERLAP / no separation.** All scores are at the noise floor (a confident
+bozorth3 match is ~40+). So naive raw→NBIS matching is not trustworthy yet. This tempers
+the M1 optimism: minutiae exist, but they don't correspond between captures.
+
+Likely causes (fixable, in priority order):
+1. **Contaminated baselines (operator error):** captures were taken with the finger HELD
+   continuously, so it was also present during the `clear-*` baseline frames → baseline
+   subtraction ≈ 0. Correct protocol: finger OFF during clear frames, ON only at
+   "Waiting for finger...". Then use `clear − finger` clean ridges (M1 showed NFIQ 1–2).
+2. **Small, position-varying partial prints:** 88×108 with the finger landing differently
+   each time → little minutiae overlap between genuine pairs. Need fuller, consistent
+   placement (and possibly capture-time alignment / more samples).
+3. **Minimal preprocessing:** only norm8+invert. The design anticipated CLAHE/local
+   normalization for these noisy small sensors — not yet applied.
+
+Next: recapture with the correct finger-off-baseline protocol, add CLAHE preprocessing,
+capture more genuine samples with fuller coverage, then re-run `m2_eval.py`. If genuine
+still doesn't clear impostor, escalate to the custom-matching fallback (SIFT/CLAHE) per the
+design. Tools/scripts (`m2_eval.py`, `nbis_test.py`) are reusable as-is.

@@ -40,7 +40,8 @@ def _fake_socket(*_a, **_k):
 
 
 def session_dir() -> str:
-    base = "55x4cfg-" + _dt.date.today().isoformat()
+    # Optional label arg -> $GOODIX_VAULT/frames/<label>[-N]; else dated.
+    base = sys.argv[1] if len(sys.argv) > 1 else "55x4cfg-" + _dt.date.today().isoformat()
     name, n = base, 1
     while os.path.exists(os.path.join(VAULT, name)):
         n += 1
