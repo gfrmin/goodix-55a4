@@ -1,0 +1,30 @@
+# ── Biometric data — NEVER commit ────────────────────────────────
+/data/*
+!/data/README.md
+/captures/*
+!/captures/README.md
+*.pcapng
+*.pcap
+*.pgm
+# raw frame dumps / enrolled templates
+*.fp
+*.template
+*.raw
+
+# ── Vendored upstreams (use your own forks as submodules) ─────────
+# Re-point these to your forks per vendor/README.md; don't commit the trees.
+/vendor/*
+!/vendor/README.md
+
+# ── Python ───────────────────────────────────────────────────────
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# ── Build / misc ─────────────────────────────────────────────────
+build/
+*.o
+*.so
+.DS_Store
