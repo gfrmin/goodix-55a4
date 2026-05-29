@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""M1 — the recognition fork test: does NBIS find usable minutiae in our frame?
+
+Feeds our captured 88x108 frame (several preprocessings) through NBIS:
+  raw 8-bit -> cwsq (WSQ) -> mindtct (-m1 -> .xyt minutiae) + nfiq (quality 1-5).
+Counts minutiae and average minutia quality per variant, draws an overlay, and
+prints a verdict (optimistic: NBIS finds usable minutiae -> libfprint matches for
+us; fallback: it doesn't -> custom preprocessing/matching needed).
+
+Usage: nbis_test.py <session_dir>
+Outputs (PNG overlays, NBIS files) stay in the session dir (the vault).
+"""
+import os
+import subprocess
+import sys
+
+import numpy as np
+from PIL import Image, ImageDraw
+
+sys.path.insert(0, os.path.dirname(__file__))
+from render_pgm import read_p2  # noqa: E402
+
+PPI = 500
+UPSCALE = 4
+PAD = 320  # WSQ/cwsq require >= 256x256; pad the small sensor frame into a canvas
+
+
+def norm8(a: np.ndarray, invert: bool = False) -> np.ndarray:
+    lo, hi = np.percentile(a, 2), np.percentile(a, 98)
+    out = np.clip((a - lo) / (hi - lo + 1e-9), 0, 1)
+    if invert:
+        out = 1.0 - out
+    return (out * 255).astype(np.uint8)
+
+
+def pad_to(a8: np.ndarray, size: int = PAD) -> np.ndarray:
+    """Center the print in a size x size canvas filled with its median (a flat
+    background yields few false minutiae). Returns padded image; record offset
+    so overlays/coords map back if needed."""
+    h, w = a8.shape
+    canvas = np.full((size, size), int(np.median(a8)), dtype=np.uint8)
+    oy, ox = (size - h) // 2, (size - w) // 2
+    canvas[oy:oy + h, ox:ox + w] = a8
+    return canvas
+
+
+def run(cmd: list[str]) -> tuple[int, str]:
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    return p.returncode, (p.stdout + p.stderr)
+
+
+def nbis_on(img8: np.ndarray, sess: str, tag: str) -> dict:
+    img8 = pad_to(img8)
+    h, w = img8.shape
+    raw = f"{sess}/_{tag}.raw"
+    img8.tofile(raw)
+    # raw -> WSQ (cwsq writes <base>.wsq)
+    rc, out = run(["cwsq", "2.25", "wsq", raw, "-raw_in", f"{w},{h},8,{PPI}"])
+    wsq = f"{sess}/_{tag}.wsq"
+    if rc != 0 or not os.path.exists(wsq):
+        return {"tag": tag, "error": f"cwsq failed: {out.strip()[:200]}"}
+    # mindtct -> <oroot>.xyt (x y theta quality)
+    oroot = f"{sess}/_{tag}"
+    rc, out = run(["mindtct", "-m1", wsq, oroot])
+    xyt = f"{oroot}.xyt"
+    minu = []
+    if os.path.exists(xyt):
+        for line in open(xyt):
+            parts = line.split()
+            if len(parts) >= 4:
+                minu.append(tuple(map(int, parts[:4])))
+    # nfiq overall quality (1 best .. 5 worst)
+    rc2, nout = run(["nfiq", wsq])
+    nfiq = nout.strip().split()[0] if nout.strip() else "?"
+    quals = [m[3] for m in minu]
+    return {
+        "tag": tag, "n": len(minu),
+        "q_mean": round(float(np.mean(quals)), 1) if quals else 0,
+        "q_ge40": sum(1 for q in quals if q >= 40),
+        "nfiq": nfiq, "minu": minu, "img": img8,
+    }
+
+
+def overlay(res: dict, sess: str) -> None:
+    if "img" not in res:
+        return
+    a = res["img"]
+    im = Image.fromarray(a, "L").convert("RGB").resize(
+        (a.shape[1] * UPSCALE, a.shape[0] * UPSCALE), Image.NEAREST)
+    d = ImageDraw.Draw(im)
+    for x, y, _t, q in res["minu"]:
+        cx, cy = x * UPSCALE, y * UPSCALE
+        color = (0, 255, 0) if q >= 40 else (255, 160, 0)
+        d.ellipse([cx - 5, cy - 5, cx + 5, cy + 5], outline=color, width=2)
+    im.save(f"{sess}/minutiae_{res['tag']}.png")
+
+
+def main() -> int:
+    sess = sys.argv[1].rstrip("/")
+    fpname = "fingerprint.pgm" if os.path.exists(
+        f"{sess}/fingerprint.pgm") else "fingerprint-0.pgm"
+    fp = read_p2(f"{sess}/{fpname}")
+    c0 = read_p2(f"{sess}/clear-0.pgm")
+    diff = c0 - fp  # baseline subtraction -> ridges
+
+    variants = {
+        "raw": norm8(fp),
+        "raw_inv": norm8(fp, invert=True),
+        "diff": norm8(diff),
+        "diff_inv": norm8(diff, invert=True),
+    }
+
+    print(f"session: {sess}  ({fp.shape[0]}x{fp.shape[1]} px @ ~{PPI}ppi)\n")
+    print(f"{'variant':10} {'minutiae':>9} {'q>=40':>6} {'q_mean':>7} {'nfiq':>5}")
+    best = None
+    for tag, img in variants.items():
+        r = nbis_on(img, sess, tag)
+        if "error" in r:
+            print(f"{tag:10} ERROR: {r['error']}")
+            continue
+        print(f"{tag:10} {r['n']:>9} {r['q_ge40']:>6} {r['q_mean']:>7} {r['nfiq']:>5}")
+        overlay(r, sess)
+        if best is None or r["q_ge40"] > best["q_ge40"]:
+            best = r
+
+    print()
+    if best and best["q_ge40"] >= 8:
+        print(f"VERDICT: OPTIMISTIC — NBIS found {best['q_ge40']} good minutiae "
+              f"(q>=40) on the '{best['tag']}' variant. libfprint's bundled matcher "
+              f"is likely viable; v0 can lean on it.")
+    elif best and best["n"] >= 6:
+        print(f"VERDICT: MARGINAL — {best['n']} minutiae but only {best['q_ge40']} "
+              f"strong on '{best['tag']}'. Needs better preprocessing/capture before "
+              f"trusting NBIS; borderline.")
+    else:
+        print("VERDICT: FALLBACK — NBIS finds too few usable minutiae on this small "
+              "noisy frame. Expect custom preprocessing (CLAHE) or SIFT-style matching.")
+    print(f"overlays: {sess}/minutiae_*.png")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

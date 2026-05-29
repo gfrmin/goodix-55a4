@@ -1,0 +1,3 @@
+[submodule "vendor/goodix-fp-dump"]
+	path = vendor/goodix-fp-dump
+	url = git@github.com:gfrmin/goodix-fp-dump.git
