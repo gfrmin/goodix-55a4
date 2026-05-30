@@ -28,3 +28,8 @@ build/
 *.o
 *.so
 .DS_Store
+
+# ── M3 build artifacts ───────────────────────────────────────────
+# 3a throwaway fork clone is already covered by /vendor/* above.
+/research/sigfm_c/builddir/
+/research/sigfm_c/harness
