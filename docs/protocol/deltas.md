@@ -475,3 +475,38 @@ anyway (1/4 ≈ no information). **M3 enrollment-design implications:** (a) the 
 must explicitly cover the **core**; (b) the flat pad matches most reliably; (c) login should
 allow **retry-on-reject** (per-session FRR ≪ per-touch FRR). Discrimination (FAR) is the hard
 part and it's solved; FRR is a tuning/UX matter for the driver. **M2 concluded → M3.**
+
+---
+
+## 2026-05-30 — M3a/M3b-offline progress (build env + SIGFM in C)
+
+**M3 strategy = validate-then-clean** (spec `docs/superpowers/specs/2026-05-30-...-m3-driver-design.md`,
+plan `docs/superpowers/plans/2026-05-30-...-m3-driver.md`).
+
+**Build env (Arch, 2026):** the community fork `TheWeirdDev/libfprint@55b4-experimental`
+(libfprint 1.94.6) **builds cleanly on the current toolchain** after two fixes: install
+`glib2-devel` (modern Arch split `glib-mkenums`/`glib-genmarshal` out of `glib2`), and pass
+`-Dc_args=-Wno-deprecated-declarations` (OpenSSL-3 legacy calls). Configure with
+`-Ddrivers=goodixtls55x4 -Dintrospection=false -Dudev_rules=disabled -Ddoc=false
+-Dgtk-examples=false -Dprefix=<local>`. All 102 targets link (libfprint-2.so, libsigfm.a,
+examples/img-capture). `27c6:55a4` is in `goodix55x4.h` id_table. Activate path audited
+**flash-free** (states READ_AND_NOP→ENABLE_CHIP→NOP→CHECK_FW_VER→CHECK_PSK→RESET→
+SET_MCU_IDLE→SET_MCU_CONFIG; the only OTP call is commented out; config upload is volatile).
+Relaxed the strict firmware `strcmp(GF3268_RTSEC_APP_10041)` → `!strstr("_RTSEC_APP_")` to
+tolerate our unit's varying `GF32xx…_10062`.
+
+**SIGFM validated in C on our M2 corpus** (`research/sigfm_c/`: vendored LGPL `sigfm.{cpp,hpp}`
++ `harness.cpp`; preprocess = clear−finger→norm→×4→CLAHE, like `sift_match.py`; SIGFM does
+SIFT+Lowe0.75+min_match5+angle-filter, **no internal CLAHE**). Result over the 10-gallery /
+4-probe / 6-impostor `m2c-*` set:
+- **All 6 impostors → score 0. FAR = 0.** (Stricter than our RANSAC, which gave impostors ≤4.)
+- Genuine: `prb-2`=34781, `prb-4`=9861, **`prb-1`=0, `prb-3`=0**. So at any T≥1: FAR=0, FRR=50%.
+- The two genuine zeros are EXACTLY the M2-diagnosed coverage misses (`prb-1` core/whorl,
+  `prb-3` partial contact). SIGFM's geometric filter zeroes partial-overlap probes rather than
+  scoring them low → **FRR is more coverage-sensitive than RANSAC.**
+- **Shippable threshold ≈5** (community default; huge margin: genuine 9861/34781 vs impostor 0).
+- **3b levers for FRR:** tiled enroll that covers the core + retry-on-reject (M2 lesson), and
+  possibly a slightly relaxed `min_match` for this tiny 88×108 sensor. Discrimination is solved.
+
+**Remaining 3a gate:** capture one frame via the *C* `img-capture` on our unit (needs a finger
+tap) — pending.
