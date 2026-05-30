@@ -453,3 +453,25 @@ header metadata — it doesn't resample the pixels `mindtct`/`bozorth3` see (we 
 fixed factors), so it can't change the matching outcome. The "NBIS insufficient" verdict is
 robust. SIFT is scale-invariant and never needed PPI. So PPI is now correctly documented but
 changes no result; its value is the enrollment-strategy insight above.
+
+---
+
+## 2026-05-30 (cont.) — Probe-failure diagnosis: it's placement/region, not mis-recognition
+
+Inspected the two genuine probes that scored low (ridge-image montage `_diag_probes.png`,
+vault-only). The SIFT discrimination is strong (the 2 clean probes scored 43/25 vs impostor
+≤4); the misses are explainable and fixable, NOT the matcher confusing the user with someone
+else:
+- **`m2c-prb-1`** (3 inliers, the only fail at T=5): a clean, high-coverage press (70%, 171
+  keypoints) — but of the **core** (concentric/whorl-centre ridges), a region the tiled
+  gallery didn't enrol. Good press, uncovered region → scored ~0 vs every gallery frame.
+- **`m2c-prb-3`** (5, scraped through): **partial contact** — left ~⅓ of the frame is dark
+  (finger not flat). A sub-optimal press.
+- The two PASSes (`prb-2`,`prb-4`) are full-contact **flat-pad** presses (parallel ridges,
+  92–96% coverage) → matched emphatically.
+
+So FRR here is dominated by placement/coverage, and n=4 is far too small to quantify it
+anyway (1/4 ≈ no information). **M3 enrollment-design implications:** (a) the enrol gallery
+must explicitly cover the **core**; (b) the flat pad matches most reliably; (c) login should
+allow **retry-on-reject** (per-session FRR ≪ per-touch FRR). Discrimination (FAR) is the hard
+part and it's solved; FRR is a tuning/UX matter for the driver. **M2 concluded → M3.**
