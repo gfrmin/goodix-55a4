@@ -558,3 +558,8 @@ frames read and TLS-decrypted** (two `Got TLS data msg`, 88×108, 12-bit). The
 finger frame uses the identical read path after `FDT_DOWN (0x32)`; capturing it
 just needs the sensor to register a sustained gentle touch (a quick tap is below
 the FDT threshold). No flashing; only reads + volatile config upload + TLS.
+
+**UPDATE (gate passed):** finger frame captured in C off this 55a4 — FDT-down registered a
+sustained touch, finger frame read+decrypted (state 17), `CAP_NUM_STATES completed
+successfully`. clear−finger **std 348.9**, **94.9% coverage** (M2 gates: std≥80, cov≥30%);
+rendered (norm→×4→CLAHE) shows clean ridge/valley structure. **Phase B done.**
