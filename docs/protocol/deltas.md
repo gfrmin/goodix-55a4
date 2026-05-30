@@ -393,3 +393,40 @@ the indicated direction regardless.) Stopped here per the user's "stop and repor
 
 Reusable from this pass: `research/m2_far_frr.py` (gallery/probe/impostor FAR-FRR sweep,
 role-by-label, auto contamination skip). The `m2c-*` set is the dev/benchmark corpus.
+
+---
+
+## 2026-05-30 (cont.) — M2 fallback WORKS: SIFT + CLAHE + RANSAC separates (FAR=0)
+
+Built the design's fallback matcher (`research/sift_match.py`): per frame `clear−finger`
+→ percentile-normalize → ×4 upscale → **cv2 CLAHE** → **SIFT** keypoints/descriptors; match
+two prints by Lowe ratio-test (0.75) good matches → **`estimateAffinePartial2D` RANSAC**
+(reproj 8.0) → **score = geometric inlier count**. Evaluated on the SAME corpus/harness as the
+failed NBIS run (17-frame gallery, 4 held-out genuine probes, 10 diverse impostors,
+best-of-gallery).
+
+**Result — clean separation (vs NBIS's overlap):**
+- genuine probes (inliers vs gallery): **43, 25, 5, 3**
+- impostor probes: **4, 4, 4, 4, 4, 3, 3, 2, 2, 2** — every impostor ≤4.
+- At **T=5 inliers: FAR=0, FRR=25%.** Genuine overlaps reach 25–43; impostors pinned ≤4
+  because random keypoint matches don't survive a single global affine (RANSAC kills them).
+  Contrast NBIS bozorth3 on the same data: impostor max 22 > genuine max 12 (≈random).
+
+The lone FRR miss (`m2c-prb-1`, 3 inliers) scores ≤3 against **every** gallery frame — a true
+enrollment-coverage gap (that natural touch hit a region/rotation the 10 tiled frames didn't
+cover), not a discrimination failure. Top-k gallery fusion doesn't help (lifts impostors
+proportionally). So FRR is reducible via denser enrollment + libfprint's retry-on-reject;
+discrimination (FAR) is already solid.
+
+Tuning (grid on m2c): ratio **0.75** + reproj **8.0** is the sweet spot — looser ratio
+(0.8–0.85) raises genuine inliers but lifts impostors to 8–16 (worse FAR). Scale ×4 and ×6
+equivalent. ORB untested (SIFT sufficient).
+
+**VERDICT: SIFT/CLAHE/RANSAC is the viable matcher for this sensor.** Recognition path is
+unblocked. M3 implication: the libfprint C driver should NOT use the bundled NBIS/bozorth
+image-matcher; it needs this SIFT-inlier matcher (libfprint has no built-in SIFT → either a
+non-image custom `FpDevice` that does SIFT matching, or vendor the matcher). Next: improve FRR
+(denser gallery / score model), confirm sensor **PPI**, then design M3 around a custom matcher.
+
+Deps: added `opencv-python-headless` (4.13) to the venv. Tool: `research/sift_match.py`
+(`--orb`, `--raw`, `--scale N`). Corpus unchanged (`m2c-*` + pooled `m2g-*`/`m2-*`).
