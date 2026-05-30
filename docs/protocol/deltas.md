@@ -508,5 +508,19 @@ SIFT+Lowe0.75+min_match5+angle-filter, **no internal CLAHE**). Result over the 1
 - **3b levers for FRR:** tiled enroll that covers the core + retry-on-reject (M2 lesson), and
   possibly a slightly relaxed `min_match` for this tiny 88×108 sensor. Discrimination is solved.
 
-**Remaining 3a gate:** capture one frame via the *C* `img-capture` on our unit (needs a finger
-tap) — pending.
+**3a hardware run (C `img-capture` on our 55a4, no-flash):** the **transport is validated**.
+Log shows: firmware `GF3268_RTSEC_APP_10062` accepted (relaxed gate), volatile config uploaded
+(no flash), PSK accepted, **TLS handshake completed (`HANDSHAKE DONE`)**. Then the **empty
+(no-finger) scan failed**: `SCAN_EMPTY` state 0 ran command `0x20`, the device replied with a
+`0xd0` TLS-data packet the non-TLS proto parser flagged "Invalid protocol command: 0xd0", and
+`0x20` timed out (`failed to scan: Command timed out: 0x20`). This is **before** the finger
+stage — pressing is irrelevant to this failure.
+- **Diagnosis:** the post-handshake image-read / FDT scan sequence (and possibly the
+  `goodix_55x4_config` bytes) in the 55b4 fork doesn't match our 5503-firmware 55a4 unit. This
+  is the exact area our Python `driver_55x4`/`driver_5503` tuned (the known flaky-FDT gating).
+- **Conclusion:** the hard, highest-risk part (USB + no-flash + PSK + GTLS in C on this unit)
+  is **proven working**. The literal "C-captured frame" is blocked only by the scan-read
+  command sequence, which 3b rewrites by porting our working Python. Combined with (a) the
+  hardware is already known to capture (Python, M0/M2) and (b) SIGFM proven in C (above), the
+  3a de-risk goal is substantially met. Not rabbit-holing into the throwaway fork's flaky FDT
+  path; carry the scan/config reconciliation into 3b (spec already lists these constants).
