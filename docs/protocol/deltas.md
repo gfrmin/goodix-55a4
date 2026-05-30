@@ -430,3 +430,26 @@ non-image custom `FpDevice` that does SIFT matching, or vendor the matcher). Nex
 
 Deps: added `opencv-python-headless` (4.13) to the venv. Tool: `research/sift_match.py`
 (`--orb`, `--raw`, `--scale N`). Corpus unchanged (`m2c-*` + pooled `m2g-*`/`m2-*`).
+
+---
+
+## 2026-05-30 (cont.) — Sensor PPI measured: ~600 (not 500); patch ≈ ¼ fingertip
+
+Measured the true resolution from ridge spacing (`research/measure_ppi.py`): averaged,
+zero-padded 2D-FFT radial spectrum over 19 clean right-index frames → dominant ridge period
+**≈ 11.4 px**. With adult ridge wavelength 0.40–0.50 mm (central 0.46): **PPI ≈ 577–721, best
+~600–627** — clearly NOT the 500 first assumed. Updated `research/nbis_test.py` `PPI=600`
+with the derivation in a comment.
+
+**Physical consequence (the useful part):** at ~600 PPI the 88×108 array images only
+**≈ 3.6 × 4.4 mm** — roughly a *quarter* of a fingertip (~15×20 mm). This is the root reason
+partial-overlap/coverage dominates: two touches must land within a few mm to share ridges.
+It quantifies why enrollment must tile the finger across many frames and why a probe landing
+on an un-enrolled quarter scores ~0 (the FRR misses).
+
+**Did the wrong PPI sink NBIS? No — checked.** Re-ran the NBIS FAR/FRR at `PPI=600`:
+**identical** scores (impostor max 22 > genuine max 12). In this pipeline PPI is only WSQ-
+header metadata — it doesn't resample the pixels `mindtct`/`bozorth3` see (we upscale/pad by
+fixed factors), so it can't change the matching outcome. The "NBIS insufficient" verdict is
+robust. SIFT is scale-invariant and never needed PPI. So PPI is now correctly documented but
+changes no result; its value is the enrollment-strategy insight above.

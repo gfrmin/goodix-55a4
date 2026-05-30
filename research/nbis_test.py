@@ -20,7 +20,10 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, os.path.dirname(__file__))
 from render_pgm import read_p2  # noqa: E402
 
-PPI = 500
+PPI = 600  # MEASURED from ridge spacing (research/measure_ppi.py): ridge period
+# ~11.4 px @ ~0.46 mm => ~600-630 PPI (range 577-721). NOT the 500 first assumed.
+# At 600 PPI the 88x108 array images only ~3.6 x 4.4 mm (~1/4 of a fingertip),
+# which is why partial-print overlap/coverage is the dominant difficulty.
 UPSCALE = 4
 PAD = 320  # WSQ/cwsq require >= 256x256; pad the small sensor frame into a canvas
 
