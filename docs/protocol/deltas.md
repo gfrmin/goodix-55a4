@@ -524,3 +524,37 @@ stage — pressing is irrelevant to this failure.
   hardware is already known to capture (Python, M0/M2) and (b) SIGFM proven in C (above), the
   3a de-risk goal is substantially met. Not rabbit-holing into the throwaway fork's flaky FDT
   path; carry the scan/config reconciliation into 3b (spec already lists these constants).
+
+## 2026-05-30 — M3 Phase B: C transport reads encrypted frames (0x20 SOLVED)
+
+The 3a `0x20 → 0xd0 → timeout` is **resolved** in the clean driver
+(`vendor/libfprint` @ `goodix55a4-m3`, commit `feec9a6`). The `0xd0` reply to
+`GET_IMAGE` was the device saying *"(re)establish TLS"* — it did not accept the
+session for data. Three fixes, in order of impact, were all required (3a had
+reached none of them):
+
+1. **Scan order.** Every `GET_IMAGE (0x20)` must be preceded by `FDT_MODE
+   (0x36)`, exactly as `driver_55x4.run_driver`. The 55b4 fork issued `0x20`
+   from `SCAN_EMPTY`/`CALIBRATE` *before* any FDT switch — that alone times out.
+2. **TLS server = in-process OpenSSL MemoryBIO**, not the fork's socketpair +
+   background-`SSL_accept`-thread relay. With `@SECLEVEL=0` (required on OpenSSL
+   3.6 for the legacy PSK-CBC-SHA256 suite) and the 32-zero-byte PSK. This is
+   exactly what `research/capture_inproc.py` documents: the socket-relay style
+   "produces no usable session on OpenSSL 3.6."
+3. **Do NOT send `TLS_SUCCESSFULLY_ESTABLISHED (0xd4)`.** The proven Python path
+   (`tool.connect_device`) never sends it; the fork does. Sending `0xd4`
+   immediately after the handshake makes *this* device drop the session and
+   reply `0xd0` to subsequent image reads. **This was the last and decisive
+   fix.** (Plus a ~20 ms post-handshake settle, matching Python's `sleep(0.01)`
+   "Important otherwise an USBTimeout".)
+
+Constant note: the device-side `goodix_55x4_config` (239 B in the fork) was a
+red herring — the **256-byte** `DEVICE_CONFIG` from `driver_55x4.py` is ground
+truth and pairs with the Python FDT-mode/FDT-down payloads.
+
+**On hardware (this 55a4):** full no-flash activate (`0x00/0xa8/0xe4/0xa2/0x82/
+0xa6`), TLS handshake, `UPLOAD_CONFIG (0x90)`, then **`clear-0` and `clear-1`
+frames read and TLS-decrypted** (two `Got TLS data msg`, 88×108, 12-bit). The
+finger frame uses the identical read path after `FDT_DOWN (0x32)`; capturing it
+just needs the sensor to register a sustained gentle touch (a quick tap is below
+the FDT threshold). No flashing; only reads + volatile config upload + TLS.
