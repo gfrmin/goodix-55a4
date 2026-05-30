@@ -308,3 +308,88 @@ Next: recapture with the correct finger-off-baseline protocol, add CLAHE preproc
 capture more genuine samples with fuller coverage, then re-run `m2_eval.py`. If genuine
 still doesn't clear impostor, escalate to the custom-matching fallback (SIFT/CLAHE) per the
 design. Tools/scripts (`m2_eval.py`, `nbis_test.py`) are reusable as-is.
+
+---
+
+## 2026-05-29 (cont.) — M2 second pass: SIGNAL FOUND (clean baselines + CLAHE-on-diff)
+
+Captured a clean round with a quality gate (`research/capture_m2.py`, wrapping the no-flash
+recipe): 5 genuine (right index, `m2g-genidx-1..5`, varied placement) + 3 impostor (right
+middle, `m2g-impmid-1..3`). Gate enforces, per capture: clean baseline (`clear-0` mean
+≥2200; finger OFF during calibration), real ridge signal (`clear−finger` std ≥80), and
+coverage ≥30%. All 8 passed (coverage 55–96%). Added a pure-numpy **CLAHE** to
+`nbis_test.py` and made `m2_eval.py` test 5 preprocessing variants + report the
+biometrically-correct **per-probe best-match** metric (a probe is matched against ALL other
+same-finger frames, best score wins — what libfprint enrollment does).
+
+**Result — variant `clahe_diffi` (CLAHE on `clear−finger`, inverted):**
+- genuine overlapping pairs score up to **20** (e.g. genidx-1↔2 = 20, genidx-1↔5 = 13);
+- **no impostor pair exceeds 6** → margin **14**; a bozorth3 threshold ~7–13 separates.
+- 4/8 probes match their own finger above any impostor. The 4 misses are **non-overlapping
+  partial prints** (genidx-3 low / genidx-4 side imaged regions the centred cluster never
+  touched; the 3 middle-finger presses didn't overlap *each other* either → score 0). That
+  is a **coverage gap, not matcher failure** — minutiae DO correspond when prints share a
+  region.
+
+**Key diagnostic (why pass 1 failed, pass 2 worked):**
+- **raw** variants now show a *negative* margin (impostor 11–23 > genuine 8): the sensor's
+  fixed-pattern/structural noise is identical across every capture, so matching raw frames
+  inflates IMPOSTOR scores. **Baseline subtraction (`clear − finger`) removes the fixed
+  pattern** → only `*diff*` variants separate. Pass 1 used raw frames AND contaminated
+  baselines → guaranteed noise-floor. Pass 2's clean-baseline protocol + CLAHE-on-diff is
+  the fix. (clahe_diff margin=9, clahe_diffi margin=14; both diff-based variants win.)
+
+**VERDICT: provisionally OPTIMISTIC.** NBIS/Bozorth IS viable on this sensor — overlapping
+same-finger prints clear all impostors by ~3×. Recognition is NOT the wall; partial-print
+**coverage** is. Path to a trustworthy FAR/FRR: enroll multiple frames per finger (libfprint
+already does this) and/or guide fuller placement; preprocessing = `clear−finger` → CLAHE →
+invert → pad → cwsq → mindtct → bozorth3, threshold ~10. Did NOT build a custom SIFT/CLAHE
+matcher (not needed on this evidence). Stopped here per user's "stop and report" choice.
+
+Reusable: `research/capture_m2.py` (gated capture), `nbis_test.clahe`, `m2_eval.py`
+(per-probe best-match verdict + auto contamination gate). Data: `$GOODIX_VAULT/frames/m2g-*`.
+
+---
+
+## 2026-05-30 — M2 THIRD pass (proper FAR/FRR): NBIS/Bozorth does NOT separate — fallback
+
+The optimism above was a **small-sample artifact**. Ran a real biometric eval
+(`research/m2_far_frr.py`): a tiled enrollment **gallery** (10 deliberately-tiled right-index
+touches + pooled prior clean right-index = **17 gallery frames**), **4 held-out genuine
+probes** (natural placement), and **10 diverse impostors** (left index/middle/ring ×2 + prior
+right-middle). All 20 new captures passed the quality gate (coverage 46–96%). Matcher =
+the "winning" `clahe_diffi` pipeline, best-of-gallery (what libfprint does).
+
+**Result — genuine and impostor distributions OVERLAP badly:**
+- genuine probes (best vs 17-frame gallery): **12, 10, 0, 0**
+- impostor probes (best vs same gallery): **22, 20, 10, 10, 9, 7, 6, 5, 5, 0**
+- **impostor max (22, left-ring; 20, right-middle) > genuine max (12).** No usable
+  threshold: FAR hits 0 only at T=23, where FRR=100%. EER ≈ 40–50% — essentially random.
+
+**Ruled out (so this is robust, not a tuning miss):**
+- *Spurious/border minutiae from CLAHE+padding?* Filtered minutiae by mindtct quality
+  (q≥0…50): the false impostor matches use HIGH-quality minutiae; filtering kills genuine
+  too. No quality threshold separates (always FRR=100% at FAR=0). Not noise.
+- *Small-N luck?* This is the opposite — going from 3 to 10 diverse impostors is what
+  exposed the overlap the first round missed.
+- Padding offset / rotation: bozorth3 is translation/rotation invariant; not the cause.
+
+**Conclusion:** minutiae matching (NBIS `mindtct`+`bozorth3`) is **insufficient on this small
+88×108 partial sensor** — too few reliable corresponding minutiae per partial; chance
+alignments between *different* fingers score as high as true matches. This is exactly the
+reason CLAUDE.md flagged ("Goodix sensors are small/noisy, which is why goodixtls went to a
+custom SIFT+CLAHE matcher"). The premature M1/M2 optimism is now corrected by a proper
+FAR/FRR test — **the libfprint bundled-matcher (`bz3_threshold`) shortcut is OFF the table.**
+
+**Path forward = the design's documented fallback:** a **correlation / keypoint matcher
+(SIFT/ORB + CLAHE)** instead of minutiae — the goodixtls community approach for these
+sensors. We're well-positioned: capture pipeline is rock-solid (20/20 clean), and we now
+have a **labelled benchmark set** (`m2c-*` gallery/probe/impostor + pooled `m2g-*`/`m2-*`,
+31 clean frames) and a correct FAR/FRR harness (`m2_far_frr.py`) to develop and score it
+against — no more presses needed to iterate the matcher. (Possible secondary factor to
+check during that work: the assumed **500 PPI** in the pipeline — if the true sensor
+resolution differs, minutiae geometry tolerances are miscalibrated; but SIFT/correlation is
+the indicated direction regardless.) Stopped here per the user's "stop and report" choice.
+
+Reusable from this pass: `research/m2_far_frr.py` (gallery/probe/impostor FAR-FRR sweep,
+role-by-label, auto contamination skip). The `m2c-*` set is the dev/benchmark corpus.

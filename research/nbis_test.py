@@ -33,6 +33,58 @@ def norm8(a: np.ndarray, invert: bool = False) -> np.ndarray:
     return (out * 255).astype(np.uint8)
 
 
+def clahe(a8: np.ndarray, tiles: int = 8, clip: float = 2.0) -> np.ndarray:
+    """Contrast-Limited Adaptive Histogram Equalization (pure numpy).
+
+    No skimage/cv2 in the venv, so this is a from-scratch CLAHE: per-tile clipped
+    histogram-equalization LUTs, bilinearly interpolated between the four nearest
+    tile centers per pixel (the standard CLAHE smoothing, no tile-boundary seams).
+    Input/output are uint8. Local normalization is what the design called for on
+    these small, low-contrast capacitive frames.
+    """
+    h, w = a8.shape
+    ty = np.linspace(0, h, tiles + 1).astype(int)
+    tx = np.linspace(0, w, tiles + 1).astype(int)
+    maps = np.zeros((tiles, tiles, 256))  # one 256-entry LUT per tile
+    for i in range(tiles):
+        for j in range(tiles):
+            blk = a8[ty[i]:ty[i + 1], tx[j]:tx[j + 1]]
+            if blk.size == 0:
+                maps[i, j] = np.arange(256)
+                continue
+            hist = np.bincount(blk.ravel(), minlength=256).astype(float)
+            if clip > 0:  # clip tall bins, redistribute the excess uniformly
+                limit = clip * blk.size / 256.0
+                excess = np.clip(hist - limit, 0, None).sum()
+                hist = np.minimum(hist, limit) + excess / 256.0
+            cdf = np.cumsum(hist)
+            maps[i, j] = (cdf - cdf.min()) / (cdf.max() - cdf.min() + 1e-9) * 255
+
+    cy = (ty[:-1] + ty[1:]) / 2.0
+    cx = (tx[:-1] + tx[1:]) / 2.0
+
+    def brackets(coords, centers):
+        idx = np.searchsorted(centers, coords)
+        i1 = np.clip(idx, 0, len(centers) - 1)
+        i0 = np.clip(idx - 1, 0, len(centers) - 1)
+        denom = centers[i1] - centers[i0]
+        wgt = np.where(denom > 0, (coords - centers[i0]) / (denom + 1e-9), 0.0)
+        return i0, i1, np.clip(wgt, 0, 1)
+
+    iy0, iy1, wy = brackets(np.arange(h), cy)
+    ix0, ix1, wx = brackets(np.arange(w), cx)
+    TY0, TY1 = iy0[:, None], iy1[:, None]
+    TX0, TX1 = ix0[None, :], ix1[None, :]
+    m00 = maps[TY0, TX0, a8]
+    m01 = maps[TY0, TX1, a8]
+    m10 = maps[TY1, TX0, a8]
+    m11 = maps[TY1, TX1, a8]
+    WY, WX = wy[:, None], wx[None, :]
+    top = m00 * (1 - WX) + m01 * WX
+    bot = m10 * (1 - WX) + m11 * WX
+    return np.clip(top * (1 - WY) + bot * WY, 0, 255).astype(np.uint8)
+
+
 def pad_to(a8: np.ndarray, size: int = PAD) -> np.ndarray:
     """Center the print in a size x size canvas filled with its median (a flat
     background yields few false minutiae). Returns padded image; record offset
