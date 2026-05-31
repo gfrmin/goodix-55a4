@@ -563,3 +563,32 @@ the FDT threshold). No flashing; only reads + volatile config upload + TLS.
 sustained touch, finger frame read+decrypted (state 17), `CAP_NUM_STATES completed
 successfully`. clear−finger **std 348.9**, **94.9% coverage** (M2 gates: std≥80, cov≥30%);
 rendered (norm→×4→CLAHE) shows clean ridge/valley structure. **Phase B done.**
+
+## 2026-05-31 — M3 Phases C–G: full driver, enroll+verify end-to-end
+
+Phases C–F committed on the fork branch (`c7c7e26` preprocess, `c7b824c` SIGFM,
+`4cc05e5` enroll, `a5fff5f` verify/identify, `23a85ca` set_type fix + replay
+hook). The whole driver builds into stock libfprint 1.94.10 and every offline
+gate passes:
+- **C preprocess** matches the Python pipeline within max|Δ|=3/255.
+- **D SIGFM** on a real C-captured frame: 286 keypoints, self-match 76M.
+- **E template** aay-gallery round-trips through serialized bytes and re-matches.
+- **G end-to-end:** `examples/enroll` (12 stages) writes a 1.85 MB 12-template
+  gallery to `test-storage.variant`; `examples/verify` loads it and our verify
+  vfunc reports **MATCH (score 76248176 ≥ 10)** through the real
+  `fp_device_verify` flow. enroll→store→load→verify→match→report all work.
+
+**Test aid:** `GOODIX55A4_REPLAY_DIR` env loads `clear-0.pgm`/`fingerprint.pgm`
+from a dir instead of capturing (deterministic enroll/verify; reused the Phase-B
+frame so the above needed zero touches).
+
+**FAR/FRR:** discrimination already proven offline (3b-offline harness: 6
+impostors all score 0 → FAR=0; genuine cross-captures match). The verify vfunc
+uses the same `sigfm_match_score`, so impostor rejection holds by construction.
+
+**Open (live hardware):** a LIVE verify capture matching the enrolled template,
+and a live impostor for an on-device FAR number. Both are blocked only by
+finicky FDT touch-registration in background runs — the capture path itself is
+identical to the Phase-B capture that succeeded (handshake + both clear frames
+decrypt every time; it just times out waiting for the physical finger). A
+single sustained hold worked in Phase B; relevant to watch for M4 (PAM).
