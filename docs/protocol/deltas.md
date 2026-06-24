@@ -592,3 +592,45 @@ finicky FDT touch-registration in background runs — the capture path itself is
 identical to the Phase-B capture that succeeded (handshake + both clear frames
 decrypt every time; it just times out waiting for the physical finger). A
 single sustained hold worked in Phase B; relevant to watch for M4 (PAM).
+
+---
+
+## 2026-06-24 — Live cross-capture: matcher OK, enroll does not tile (FDT_UP fix)
+
+**How found:** first live genuine-verify attempts through the real driver
+(`examples/enroll` + `examples/verify` on the isolated build). Three live
+verifies all returned `best score 0`. Debugged offline against ground truth.
+
+**Findings:**
+
+- **Matcher is NOT the problem.** Captured two distinct live presses of the same
+  right-index region (`img-capture` + `GOODIX55A4_DUMP_DIR`). Scored them with the
+  *proven* M2 pipeline (`research/sift_match.py`: clear−finger → norm → ×4 → CLAHE
+  → SIFT + RANSAC):
+  - self-match A vs A = 444 inliers (sanity OK)
+  - **genuine A vs B (cross-capture, same finger) = 2 inliers** → effectively no match.
+  So two freehand presses of the *same* spot do not match even in ground truth.
+- **Physical overlap measured:** zero-mean NCC of the two clear−finger frames peaks
+  at **0.47** at a shift of dx=−2, **dy=−12** px (88×108 frame). They overlap, but
+  the ~12 px offset on a ¼-fingertip sensor leaves too few corresponding SIFT
+  minutiae. Consistent with M2's FRR≈25% even with a real gallery: single-region
+  enroll vs one probe is unreliable by nature.
+- **Enroll does not actually tile (driver bug).** Timing of a live 12-stage enroll:
+  stage 1's `FDT_DOWN` (0x32) blocked ~26 s (waiting for the press), but stages
+  2–12 each completed in <1 s. `FDT_DOWN` returns *immediately if a finger is still
+  present*, so all 12 stages captured the same held region → the gallery covers one
+  spot, not the fingertip. No verify press can reliably overlap a one-region gallery.
+
+**Fix (identified, not yet implemented):** between enroll stages, wait for the
+finger to *lift* before arming the next `FDT_DOWN`. The transport already exposes
+the primitive: `goodix_send_mcu_switch_to_fdt_up` /
+`goodix_send_mcu_switch_to_fdt_up_no_reply` (`GOODIX_CMD_MCU_SWITCH_TO_FDT_UP`
+0x34, the inverse of 0x32). Sequence per stage: capture → FDT_MODE → FDT_UP
+(blocks until lift) → next stage's FDT_DOWN. Then a real tiled enroll (~12
+lift-and-tap, deliberately spread) builds a multi-region gallery so a verify press
+overlaps some frame (~75%/press per M2; libfprint verify retries cover the rest).
+Note: 0x34 is NOT on the proven `run_driver` path (driver_55x4 captures once), so
+its payload/timing is a small unknown to validate on first use.
+
+**Not a regression in:** capture (live frames have std ~5960, 392–444 SIFT
+keypoints), TLS, preprocess, or SIGFM extract — all confirmed working live.
