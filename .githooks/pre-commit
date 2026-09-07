@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Structural PII guard — block staged content shaped like real personal data.
+# Catches leaks at commit time, before they enter local history.
+# --shapes-only: this repo has no private name denylist; shapes + email allowlist
+# are the whole gate here.
+exec python3 "$(git rev-parse --show-toplevel)/.githooks/pii_check.py" --staged --shapes-only  # PII-OK

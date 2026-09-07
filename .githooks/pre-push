@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Structural PII guard — scan every blob in every pushed commit, not just the net
+# diff, so nothing reaches a public remote via an intermediate commit.
+exec python3 "$(git rev-parse --show-toplevel)/.githooks/pii_check.py" --prepush --shapes-only  # PII-OK

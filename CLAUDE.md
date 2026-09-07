@@ -49,7 +49,7 @@ Don't build the matcher until this is tested. See Milestone 1.
 ## Device facts (verified 2026-05-29 on this machine)
 
 - Reader: `Bus 001 Device 004: ID 27c6:55a4 Shenzhen Goodix ... FingerPrint Device`
-- OS: Arch Linux, Wayland/KDE Plasma, user `g` (in `wheel`).
+- OS: Arch Linux, Wayland/KDE Plasma; the developer's user is in `wheel`.
 - Already installed: `fprintd` 1.94.5, `libfprint` 1.94.10. Upstream libfprint does
   **not** list `55a4` (confirmed: not in `/usr/lib/udev/rules.d/70-libfprint-2.rules`).
 - No enrolled prints; `pam_fprintd` not configured anywhere yet.
@@ -65,4 +65,4 @@ Don't build the matcher until this is tested. See Milestone 1.
 
 ## If you use local LLMs for any AI-RE tooling
 
-Point them at the ollama server on host **`steel`**, not localhost (per user memory).
+Point them at whatever ollama endpoint the environment provides (e.g. `$OLLAMA_HOST`), not necessarily localhost.

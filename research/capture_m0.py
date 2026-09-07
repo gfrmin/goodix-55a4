@@ -28,11 +28,13 @@ import subprocess
 import sys
 import time
 
-# NOTE: hardcode the real user home. Under sudo, os.path.expanduser("~") -> /root,
-# which would dump biometric frames into root's home instead of the user vault.
-VENDOR = "<repo>/vendor/goodix-fp-dump"
+# Paths come from vault.py, which derives the repo from __file__ and the user's
+# home from SUDO_USER. Under sudo, os.path.expanduser("~") is /root, which would
+# dump biometric frames into root's home instead of the user vault.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import vault  # noqa: E402  (vault root + external-volume guard)
+import vault  # noqa: E402  (repo layout + vault root + volume guard)
+
+VENDOR = vault.vendor()
 
 VAULT = vault.frames()
 PRODUCT = 0x55a4

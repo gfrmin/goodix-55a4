@@ -18,7 +18,11 @@ import sys
 import threading
 import time
 
-VENDOR = "<repo>/vendor/goodix-fp-dump"
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import vault  # noqa: E402  (repo layout + vault root + volume guard)
+
+VENDOR = vault.vendor()
 if VENDOR not in sys.path:
     sys.path.insert(0, VENDOR)
 

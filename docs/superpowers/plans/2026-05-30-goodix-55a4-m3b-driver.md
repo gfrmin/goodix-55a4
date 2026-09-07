@@ -206,7 +206,7 @@ Source of truth = `vendor/goodix-fp-dump/driver_55x4.py` (`run_driver`, proven o
 - CLAHE kept (M2) → Phase C + the offline harness. ✔
 - Tiled multi-frame enroll, retry, gentle taps, ~12 stages → Phase E. ✔
 - Threshold recalibrated on our hardware → Phase G. ✔
-- Relaxed firmware gate; reconciled PSK (zero key)/orientation/config-size constants → ground-truth section + Phase B. ✔
+- Relaxed firmware gate; reconciled the PSK (zero key), orientation and config-size constants → ground-truth section + Phase B. ✔
 - Isolated prefix, no `/usr`, no PAM, biometric data in vault only → hard rules, Phase A.3, Phase G. ✔
 - LGPL attribution → Phase B.1, D.1. ✔
 - M3-done gate (fprintd-enroll/verify + sane FAR/FRR) → Phase G. ✔

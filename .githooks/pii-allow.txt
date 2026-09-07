@@ -1,0 +1,4 @@
+# Public, non-PII email domains that may legitimately appear in tracked files
+# (clone URLs, upstream attribution). One per line, case-insensitive.
+# NEVER add a personal mail domain here — this file is public.
+github.com

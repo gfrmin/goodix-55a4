@@ -1,4 +1,6 @@
 # ── Biometric data — NEVER commit ────────────────────────────────
+# Local, machine-specific vault location (never commit a personal path).
+/.vault-path
 /data/*
 !/data/README.md
 /captures/*

@@ -19,9 +19,10 @@ import socket as _socket_mod
 import ssl
 import sys
 
-VENDOR = "<repo>/vendor/goodix-fp-dump"
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import vault  # noqa: E402  (vault root + external-volume guard)
+import vault  # noqa: E402  (repo layout + vault root + volume guard)
+
+VENDOR = vault.vendor()
 
 VAULT = vault.frames()
 PRODUCT = 0x55a4

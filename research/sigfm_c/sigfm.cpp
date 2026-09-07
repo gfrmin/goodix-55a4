@@ -1,7 +1,7 @@
 // SIGFM algorithm for libfprint
 
-// Copyright (C) 2022 Matthieu CHARETTE <matthieu.charette@gmail.com>
-// Copyright (c) 2022 Natasha England-Elbro <ashenglandelbro@protonmail.com>
+// Copyright (C) 2022 Matthieu CHARETTE <matthieu.charette@gmail.com>  // PII-OK: upstream author attribution, published in the GPL headers of the goodixtls project
+// Copyright (c) 2022 Natasha England-Elbro <ashenglandelbro@protonmail.com>  // PII-OK: upstream author attribution, published in the GPL headers of the goodixtls project
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public

@@ -135,9 +135,9 @@ legacy PSK cipher and relaxed security level, e.g. spawn
 **Tooling notes for future runs (cost me time):**
 - Under `sudo`, the script could NOT open a log file under `/tmp` or `~/.claude`
   (`PermissionError`) — the sandbox restricts sudo writes there. Root writes under
-  `/home/<user>/...` and `/root/...` DO work. Print to stdout / read the bg task output file;
+  absolute paths under the invoking user's home and `/root/...` DO work. Print to stdout / read the bg task output file;
   don't have a sudo'd script write logs into `/tmp`.
-- `os.path.expanduser("~")` under `sudo` = `/root`. Hardcode `/home/<user>/...` for the vault.
+- `os.path.expanduser("~")` under `sudo` = `/root`. Derive paths from `__file__` / `SUDO_USER` (see research/vault.py) for the vault.
 - Kill BOTH the python and its `openssl s_server` child between attempts; pkilling only the
   python orphans the server on `:4433`.
 

@@ -1,0 +1,48 @@
+# Path roots that may legitimately appear in tracked text. One prefix per line.
+# A tracked filesystem path whose prefix is NOT listed here is flagged by
+# .githooks/pii_check.py. NEVER add a personal data root (a real home or data
+# mount) here — this file is public. The vault's real location is never tracked:
+# it lives in $GOODIX_VAULT or the gitignored .vault-path.
+
+# System roots. This is a Linux *driver* repo, so these are unavoidable and
+# carry no personal data: udev rules, PAM config, fprintd's template store,
+# sysfs/usb device nodes, toolchain locations.
+/usr
+/etc
+/var
+/opt
+/srv
+/dev
+/proc
+/sys
+/bin
+/sbin
+/lib
+/tmp
+/root
+
+# Placeholders used in documentation and usage strings.
+/data
+/path/to
+<repo>
+$GOODIX_VAULT
+~/.config
+~/.cache
+~/.local
+
+# Anchored .gitignore patterns (`/vendor/*`, `/captures/*`, …) are gitignore
+# syntax, not filesystem paths, but share the leading-slash shape.
+/captures
+/vendor
+/research
+/frames
+
+# Repo-relative and documentation placeholders that share the path shape but name
+# nothing personal: `~/git/<repo>` (no user component), elided plan paths such as
+# `…/goodix55a4/driver.c`, and the XDG fallback / relative fragments in vault code.
+~/git
+~/.claude
+/path
+/.local
+/goodix55a4
+/../..

@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <map>
@@ -64,26 +65,51 @@ static cv::Mat preprocess(const std::string& sess) {
     return out;
 }
 
-// Vault root, mirroring research/vault.py: GOODIX_VAULT overrides, else the
-// external `yo` volume. Refuses a vault that sits on the same device as "/" --
-// if `yo` is not mounted, $GOODIX_VAULT is an empty dir on the internal disk and we would
-// silently read/write biometric data there (see vault.py for the full story).
+// Vault root, mirroring research/vault.py: $GOODIX_VAULT, else <repo>/.vault-path
+// (gitignored), else ~/.local/share/goodix-55a4. Refuses a vault on the same device
+// as "/": the vault is expected on removable storage, and when that is unmounted its
+// mountpoint is an empty dir on the internal disk, so we would silently read/write
+// biometric data there (see vault.py for the full story).
+static std::string read_vault_path_file() {
+    // <repo>/.vault-path, relative to this source file's location at build time.
+    std::string f = std::string(SRC_DIR) + "/../../.vault-path";
+    FILE* fh = fopen(f.c_str(), "r");
+    if (!fh) return "";
+    char buf[4096] = {0};
+    std::string out;
+    while (fgets(buf, sizeof buf, fh)) {
+        std::string line(buf);
+        if (auto h = line.find('#'); h != std::string::npos) line = line.substr(0, h);
+        while (!line.empty() && isspace((unsigned char)line.back())) line.pop_back();
+        size_t b = line.find_first_not_of(" \t");
+        if (b == std::string::npos) continue;
+        out = line.substr(b);
+        break;
+    }
+    fclose(fh);
+    return out;
+}
+
 static std::string vault_frames() {
+    const char* home = getenv("HOME");
     std::string root;
     if (const char* env = getenv("GOODIX_VAULT")) {
         root = env;
+    } else if (std::string f = read_vault_path_file(); !f.empty()) {
+        root = f;
     } else {
-        const char* home = getenv("HOME");
         if (!home) { fprintf(stderr, "vault: HOME unset\n"); exit(1); }
-        root = std::string(home) + "/yo/data/personal/goodix-55a4";
+        root = std::string(home) + "/.local/share/goodix-55a4";
     }
+    if (!root.empty() && root[0] == '~' && home) root = std::string(home) + root.substr(1);
     if (!getenv("GOODIX_VAULT_ALLOW_ROOT")) {
         struct stat sv, sr;
         if (stat(root.c_str(), &sv) != 0 || stat("/", &sr) != 0 || sv.st_dev == sr.st_dev) {
             fprintf(stderr,
                     "refusing to use vault: %s\n"
-                    "It is missing or on the root disk -- mount the external `yo` volume, "
-                    "or set GOODIX_VAULT (GOODIX_VAULT_ALLOW_ROOT=1 to override).\n",
+                    "It is missing or on the root filesystem -- mount the data volume, set "
+                    "GOODIX_VAULT, or write the path into .vault-path "
+                    "(GOODIX_VAULT_ALLOW_ROOT=1 overrides).\n",
                     root.c_str());
             exit(1);
         }
