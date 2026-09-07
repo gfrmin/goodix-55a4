@@ -20,7 +20,10 @@ import ssl
 import sys
 
 VENDOR = "<repo>/vendor/goodix-fp-dump"
-VAULT = "$GOODIX_VAULT/frames"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import vault  # noqa: E402  (vault root + external-volume guard)
+
+VAULT = vault.frames()
 PRODUCT = 0x55a4
 
 if VENDOR not in sys.path:

@@ -64,6 +64,33 @@ static cv::Mat preprocess(const std::string& sess) {
     return out;
 }
 
+// Vault root, mirroring research/vault.py: GOODIX_VAULT overrides, else the
+// external `yo` volume. Refuses a vault that sits on the same device as "/" --
+// if `yo` is not mounted, $GOODIX_VAULT is an empty dir on the internal disk and we would
+// silently read/write biometric data there (see vault.py for the full story).
+static std::string vault_frames() {
+    std::string root;
+    if (const char* env = getenv("GOODIX_VAULT")) {
+        root = env;
+    } else {
+        const char* home = getenv("HOME");
+        if (!home) { fprintf(stderr, "vault: HOME unset\n"); exit(1); }
+        root = std::string(home) + "/yo/data/personal/goodix-55a4";
+    }
+    if (!getenv("GOODIX_VAULT_ALLOW_ROOT")) {
+        struct stat sv, sr;
+        if (stat(root.c_str(), &sv) != 0 || stat("/", &sr) != 0 || sv.st_dev == sr.st_dev) {
+            fprintf(stderr,
+                    "refusing to use vault: %s\n"
+                    "It is missing or on the root disk -- mount the external `yo` volume, "
+                    "or set GOODIX_VAULT (GOODIX_VAULT_ALLOW_ROOT=1 to override).\n",
+                    root.c_str());
+            exit(1);
+        }
+    }
+    return root + "/frames";
+}
+
 static std::string role(const std::string& name) {
     if (name.find("imp") != std::string::npos) return "impostor";
     if (name.find("prb") != std::string::npos) return "probe";
@@ -71,8 +98,7 @@ static std::string role(const std::string& name) {
 }
 
 int main(int argc, char** argv) {
-    std::string root = (argc > 1) ? argv[1]
-        : std::string(getenv("HOME")) + "/yo/data/goodix-55a4/frames";
+    std::string root = (argc > 1) ? argv[1] : vault_frames();
     std::vector<std::string> sessions;
     if (DIR* d = opendir(root.c_str())) {
         for (dirent* e; (e = readdir(d));) {

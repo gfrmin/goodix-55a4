@@ -27,11 +27,12 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
+import vault  # noqa: E402  (vault root + external-volume guard)
 from m2_eval import is_clean_baseline  # noqa: E402
 from nbis_test import norm8  # noqa: E402
 from render_pgm import read_p2  # noqa: E402
 
-VAULT = os.path.expanduser("$GOODIX_VAULT/frames")
+VAULT = vault.frames()
 DEFAULT = [f"{VAULT}/m2c-*", f"{VAULT}/m2g-*", f"{VAULT}/m2-*"]
 
 

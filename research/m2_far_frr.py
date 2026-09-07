@@ -25,11 +25,12 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
+import vault  # noqa: E402  (vault root + external-volume guard)
 from m2_eval import is_clean_baseline, make_xyt, score, variants  # noqa: E402
 from render_pgm import read_p2  # noqa: E402
 
 VARIANT = "clahe_diffi"
-VAULT = os.path.expanduser("$GOODIX_VAULT/frames")
+VAULT = vault.frames()
 DEFAULT = [f"{VAULT}/m2c-*", f"{VAULT}/m2g-*", f"{VAULT}/m2-*"]
 
 

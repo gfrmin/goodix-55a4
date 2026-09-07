@@ -335,8 +335,7 @@ static std::string role(const std::string& name) {
 }
 
 int main(int argc, char** argv) {
-    std::string root = (argc > 1) ? argv[1]
-        : std::string(getenv("HOME")) + "/yo/data/goodix-55a4/frames";
+    std::string root = (argc > 1) ? argv[1] : vault_frames();  // see vault_frames() in harness.cpp
     // collect m2c-* session dirs
     std::vector<std::string> sessions;
     if (DIR* d = opendir(root.c_str())) {

@@ -12,7 +12,7 @@ Sessions whose baseline is contaminated (finger held during the clear-* frames)
 are detected and EXCLUDED automatically -- a clean baseline reads clear-0 mean
 ~2620; a contaminated one ~1650 and clear-finger std ~0.
 
-Usage: m2_eval.py [frames_glob ...]   (default $GOODIX_VAULT/frames/m2g-*)
+Usage: m2_eval.py [frames_glob ...]   (default <vault>/frames/m2g-*)
 """
 import glob
 import itertools
@@ -24,10 +24,11 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
+import vault  # noqa: E402  (vault root + external-volume guard)
 from nbis_test import PPI, clahe, norm8, pad_to  # noqa: E402
 from render_pgm import read_p2  # noqa: E402
 
-DEFAULT = os.path.expanduser("$GOODIX_VAULT/frames/m2g-*")
+DEFAULT = os.path.join(vault.frames(), "m2g-*")
 
 # Baseline-contamination thresholds (see module docstring; verified on this unit).
 CLEAR_MEAN_MIN = 2200   # clean baseline ~2620; finger-held ~1650

@@ -14,7 +14,10 @@ import re
 import sys
 
 VENDOR = "<repo>/vendor/goodix-fp-dump"
-VAULT = "$GOODIX_VAULT/frames"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import vault  # noqa: E402  (vault root + external-volume guard)
+
+VAULT = vault.frames()
 
 if VENDOR not in sys.path:
     sys.path.insert(0, VENDOR)
@@ -40,7 +43,7 @@ def _fake_socket(*_a, **_k):
 
 
 def session_dir() -> str:
-    # Optional label arg -> $GOODIX_VAULT/frames/<label>[-N]; else dated.
+    # Optional label arg -> <vault>/frames/<label>[-N]; else dated.
     base = sys.argv[1] if len(sys.argv) > 1 else "55x4cfg-" + _dt.date.today().isoformat()
     name, n = base, 1
     while os.path.exists(os.path.join(VAULT, name)):

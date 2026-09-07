@@ -31,7 +31,10 @@ import time
 # NOTE: hardcode the real user home. Under sudo, os.path.expanduser("~") -> /root,
 # which would dump biometric frames into root's home instead of the user vault.
 VENDOR = "<repo>/vendor/goodix-fp-dump"
-VAULT = "$GOODIX_VAULT/frames"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import vault  # noqa: E402  (vault root + external-volume guard)
+
+VAULT = vault.frames()
 PRODUCT = 0x55a4
 
 if VENDOR not in sys.path:
