@@ -4,8 +4,12 @@
 Adult fingerprint ridges have a well-known physical period (~0.40-0.50 mm,
 central ~0.46 mm). Measure the dominant ridge period in PIXELS from each frame's
 2D FFT, then PPI = period_px / wavelength_mm * 25.4. Averaging over many clean
-right-index frames gives a robust number to replace the assumed 500 PPI
-(research/nbis_test.py PPI=500), which only the NBIS path actually depends on.
+right-index frames gives a robust number to check `nbis_test.PPI` against. That
+constant is read live below rather than copied here: the first version of this
+script hardcoded the superseded 500, so it reported MISCALIBRATED even after the
+pipeline had been corrected to 600. Only the NBIS path depends on it (it is the
+PPI written into the WSQ header that mindtct then scales minutiae by); the SIFT
+and SIGFM paths are scale-free.
 
 Method per frame: clear-finger ridge image -> central crop -> remove low-freq
 trend -> Hann window -> 2D FFT power -> radial-average -> peak in the plausible
@@ -23,7 +27,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(__file__))
 import vault  # noqa: E402  (vault root + external-volume guard)
 from m2_eval import is_clean_baseline  # noqa: E402
-from nbis_test import norm8  # noqa: E402
+from nbis_test import PPI, norm8  # noqa: E402
 from render_pgm import read_p2  # noqa: E402
 
 VAULT = vault.frames()
@@ -84,9 +88,17 @@ def main() -> int:
     for wl in WAVELENGTHS_MM:
         print(f"  ridge wavelength {wl:.2f} mm -> {med / wl * 25.4:4.0f} PPI")
     central = med / 0.46 * 25.4
-    print(f"\nbest estimate ~{central:.0f} PPI (central 0.46mm). "
-          f"Assumed in pipeline: 500 PPI -> "
-          f"{'OK' if abs(central-500) < 75 else 'MISCALIBRATED, update nbis_test.PPI'}.")
+    # Judge against the band the measurement can actually distinguish rather than
+    # a magic tolerance: ridge wavelength is only known to ~0.40-0.50 mm, so these
+    # same frames are consistent with any PPI in [lo, hi]. A value inside that band
+    # is not evidence of miscalibration and does not justify moving the constant.
+    lo = med / max(WAVELENGTHS_MM) * 25.4
+    hi = med / min(WAVELENGTHS_MM) * 25.4
+    verdict = ("OK" if lo <= PPI <= hi
+               else f"MISCALIBRATED, update nbis_test.PPI to ~{central:.0f}")
+    print(f"\nbest estimate ~{central:.0f} PPI (central 0.46mm); frames are "
+          f"consistent with {lo:.0f}-{hi:.0f} PPI.")
+    print(f"nbis_test.PPI = {PPI} (delta {central - PPI:+.0f}) -> {verdict}.")
     return 0
 
 
