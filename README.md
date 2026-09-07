@@ -52,3 +52,23 @@ cat docs/superpowers/specs/2026-05-29-goodix-55a4-driver-design.md
 
 Match-on-host + a known PSK means this is a **convenience factor, not a security
 boundary**. Keep your password working. See the threat-model section of the design spec.
+
+## License
+
+**LGPL-2.1-or-later** — see [`LICENSE`](LICENSE).
+
+This matches [libfprint](https://gitlab.freedesktop.org/libfprint/libfprint),
+which is the destination for the driver, so code can move upstream without
+relicensing.
+
+Provenance of third-party code in this tree:
+
+| Path | Origin | License |
+|---|---|---|
+| `research/sigfm_c/{sigfm.cpp,sigfm.hpp}` | SIGFM matcher, from the goodixtls / libfprint work of Matthieu Charette and Natasha England-Elbro (© 2022) | LGPL-2.1-or-later, per their file headers |
+| `research/sigfm_c/{binary.hpp,img-info.hpp}` | Support headers from the same SIGFM source tree; they carry no header of their own | Treated as LGPL-2.1-or-later with the rest of SIGFM |
+| `.githooks/pii_check.py` | Vendored from the author's `life-agent` repo | LGPL-2.1-or-later with this repo |
+| `vendor/goodix-fp-dump` | Submodule — a separate repository, not covered by this LICENSE | MIT |
+
+NBIS (`mindtct`, `bozorth3`) is invoked as external binaries, never linked, so its
+NIST public-domain terms do not affect this repo's licensing.
